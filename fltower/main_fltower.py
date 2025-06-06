@@ -856,3 +856,397 @@ def plot_triplicate_stats(
     plt.close()
     print(f"Saved triplicate plot for {metric_column} to: {plot_path}")
 
+def process_fcs_files(directory, plots_config, results_directory):
+    start_time = time.time()
+
+    # Create output structure
+    (
+        plots_dir,
+        well_plots_dir,
+        stats_dir,
+        triplicate_stats_dir,
+        triplicate_plots_dir,
+    ) = create_output_structure(results_directory)
+
+    scatter_dfs = {}
+    histogram_dfs = {}
+    singlet_stats = []
+
+    files = [
+        os.path.join(directory, f) for f in os.listdir(directory) if f.endswith(".fcs")
+    ]
+    if not files:
+        print("No FCS files found in the directory.")
+        return pd.DataFrame(), 0  # Return empty DataFrame and 0 runtime
+
+    print(f"Found {len(files)} FCS files in {directory}")
+
+    # Sort files using extract_well_key
+    files.sort(key=lambda f: extract_well_key(os.path.basename(f))[1])
+
+    # Define the number of rows and columns for the plots
+    num_rows = 8
+    num_cols = 12
+
+    # Create figure for singlet gate plots
+    fig_singlets, axes_singlets = plt.subplots(
+        num_rows + 1,
+        num_cols + 1,
+        figsize=(42, 28),  # Adjusted figure size to 12:8 ratio
+        gridspec_kw={
+            "height_ratios": [0.5] + [1] * num_rows,
+            "width_ratios": [0.5] + [1] * num_cols,
+        },
+    )
+    fig_singlets.suptitle("Singlet Gates", fontsize=24, fontweight="bold", y=0.98)
+
+    # Adjust the spacing between subplots
+    fig_singlets.subplots_adjust(hspace=0.1, wspace=0.4)  # Adjusted hspace and wspace
+
+    # Create figures for each plot configuration
+    figs = {}
+    axes = {}
+    for config in plots_config.values():
+        plot_key = f"{config['type']}_{config['x_param']}_{config.get('y_param', '')}"
+        fig, ax = plt.subplots(
+            num_rows + 1,
+            num_cols + 1,
+            figsize=(42, 28),  # Adjusted figure size to 12:8 ratio
+            gridspec_kw={
+                "height_ratios": [0.5] + [1] * num_rows,
+                "width_ratios": [0.5] + [1] * num_cols,
+            },
+        )
+        fig.suptitle(
+            f"{config['type'].capitalize()} Plot: {config['x_param']} vs {config.get('y_param', '')}",
+            fontsize=24,
+            fontweight="bold",
+            y=0.95,
+        )  # Adjusted y to reduce space
+
+        # Adjust the spacing between subplots
+        if config["type"] == "scatter":
+            fig.subplots_adjust(
+                hspace=0.6, wspace=1
+            )  # Reduced hspace for scatter plots
+        else:
+            fig.subplots_adjust(hspace=0.6, wspace=0.5)  # Reduced hspace for histograms
+
+        figs[plot_key] = fig
+        axes[plot_key] = ax
+
+    # Add column and row labels for all plots
+    for plot_key, fig in figs.items():
+        ax = axes[plot_key]
+        for col in range(1, num_cols + 1):
+            ax[0, col].text(
+                0.5,
+                0.2,
+                str(col),
+                ha="center",
+                va="center",
+                fontweight="bold",
+                fontsize=18,
+            )  # Increased font size and boldness
+            ax[0, col].axis("off")
+
+        for row in range(1, num_rows + 1):
+            ax[row, 0].text(
+                0.5,
+                0.5,
+                chr(64 + row),
+                ha="center",
+                va="center",
+                fontweight="bold",
+                fontsize=18,
+            )  # Increased font size and boldness
+            ax[row, 0].axis("off")
+
+        # Remove the top-left empty cell
+        ax[0, 0].axis("off")
+
+        # For scatter plots, adjust the position of subplots to bring rows closer
+        if "scatter" in plot_key:
+            for row in range(
+                1, num_rows + 1
+            ):  # Start from the first row of actual plots
+                for col in range(1, num_cols + 1):
+                    pos = ax[row, col].get_position()
+                    pos.y0 = pos.y0 + 0.02 * (
+                        row - 1
+                    )  # Move up by 2% of figure height for each row
+                    pos.y1 = pos.y1 + 0.02 * (row - 1)
+                    ax[row, col].set_position(pos)
+                    ax[row, col].set_aspect(
+                        "equal", adjustable="box"
+                    )  # Make each subplot square
+
+    # Ensure tight layout to minimize blank space
+    for fig in figs.values():
+        fig.tight_layout(
+            rect=[0, 0, 1, 0.95]
+        )  # Adjust rect to leave less space for suptitle
+
+    # Initialize a set to keep track of wells with data
+    wells_with_data = set()
+
+    # Calculate total number of iterations
+    total_iterations = len(files) * (len(plots_config) + 1)  # +1 for singlet plots
+
+    # Create a progress bar
+    with tqdm(
+        total=total_iterations, desc="Processing files", unit="plot", file=sys.stdout
+    ) as pbar:
+        for file in files:
+            well_key, (row_letter, col_number) = extract_well_key(file)
+            row = (
+                ord(row_letter) - 64
+            )  # Convert letter to row number (A=1, B=2, ..., H=8)
+            col = col_number
+
+            if row > num_rows or col > num_cols:
+                print(
+                    f"Skipping file {file} with well key {well_key} as it is out of the {num_rows}x{num_cols} grid."
+                )
+                continue
+
+            wells_with_data.add((row, col))
+
+            try:
+                data, _ = read_fcs(file)
+                if data is None:
+                    pbar.update(1)
+                    continue
+
+                # Remove doublets
+                (
+                    singlets,
+                    singlet_percentage,
+                    total_events,
+                    singlet_events,
+                ) = remove_doublets(data)
+                print(
+                    f"File: {file}, Singlet percentage: {singlet_percentage:.2f}%, "
+                    f"Total events: {total_events}, Singlet events: {singlet_events}"
+                )
+                singlet_stats.append(
+                    {
+                        "Well": well_key,
+                        "Singlet_Percentage": singlet_percentage,
+                        "Total_Events": total_events,
+                        "Singlet_Events": singlet_events,
+                    }
+                )
+
+                # Plot singlet gate
+                ax_singlet = axes_singlets[row, col]
+                plot_singlet_gate(data, ax=ax_singlet, file_name=well_key)
+
+                for config in plots_config.values():
+                    plot_key = f"{config['type']}_{config['x_param']}_{config.get('y_param', '')}"
+                    if config["type"] == "scatter":
+                        # Process scatter plot
+                        ax = axes[plot_key][row, col]
+                        gate_stats = plot_scatter_with_manual_gates(
+                            singlets,
+                            config["x_param"],
+                            config["y_param"],
+                            well_key,
+                            ax,
+                            scatter_type=config.get("scatter_type", "scatter"),
+                            cmap=config.get("cmap", "viridis"),
+                            x_scale=config.get("x_scale", "linear"),
+                            y_scale=config.get("y_scale", "linear"),
+                            xlim=config.get("xlim"),
+                            ylim=config.get("ylim"),
+                            gridsize=config.get("gridsize", 100),
+                            quadrant_gates=config.get("quadrant_gates"),
+                        )
+
+                        if gate_stats is not None:
+                            gate_stats["Well"] = well_key
+                            new_df = pd.DataFrame([gate_stats])
+                            if plot_key not in scatter_dfs:
+                                scatter_dfs[plot_key] = []
+                            scatter_dfs[plot_key].append(new_df)
+
+                    elif config["type"] == "histogram":
+                        # Process histogram plot
+                        ax = axes[plot_key][row, col]
+                        stats = plot_histogram(
+                            singlets,
+                            config["x_param"],
+                            well_key,
+                            ax,
+                            x_scale=config.get("x_scale", "linear"),
+                            kde=config.get("kde", False),
+                            color=config.get("color", "blue"),
+                            xlim=config.get("xlim"),
+                            gates=config.get("gates"),
+                        )
+
+                        if stats is not None:
+                            stats["Well"] = well_key
+                            new_df = pd.DataFrame([stats])
+                            if plot_key not in histogram_dfs:
+                                histogram_dfs[plot_key] = []
+                            histogram_dfs[plot_key].append(new_df)
+
+                pbar.update(1)  # Update progress bar
+
+            except Exception as e:
+                print(f"Error processing file {file}: {str(e)}")
+                continue
+
+        # Fill empty wells with "No Data"
+        for row in range(1, num_rows + 1):
+            for col in range(1, num_cols + 1):
+                if (row, col) not in wells_with_data:
+                    # Fill singlet gate plot
+                    ax_singlet = axes_singlets[row, col]
+                    ax_singlet.text(0.5, 0.5, "No Data", ha="center", va="center")
+                    ax_singlet.axis("off")
+
+                    # Fill other plots
+                    for ax in axes.values():
+                        ax[row, col].text(0.5, 0.5, "No Data", ha="center", va="center")
+                        ax[row, col].axis("off")
+
+        # Concatenate DataFrames and save statistics to CSV files
+        for plot_key, df_list in scatter_dfs.items():
+            if df_list:
+                df = pd.concat(df_list, ignore_index=True)
+                scatter_csv_path = os.path.join(
+                    stats_dir,
+                    f"{plot_key}_statistics_{os.path.basename(results_directory)}.csv",
+                )
+                df.to_csv(scatter_csv_path, index=False)
+                print(f"Saved {plot_key} statistics to: {scatter_csv_path}")
+                scatter_dfs[plot_key] = df  # Replace list with concatenated DataFrame
+
+        for plot_key, df_list in histogram_dfs.items():
+            if df_list:
+                df = pd.concat(df_list, ignore_index=True)
+                histogram_csv_path = os.path.join(
+                    stats_dir,
+                    f"{plot_key}_statistics_{os.path.basename(results_directory)}.csv",
+                )
+                df.to_csv(histogram_csv_path, index=False)
+                print(f"Saved {plot_key} statistics to: {histogram_csv_path}")
+                histogram_dfs[plot_key] = df  # Replace list with concatenated DataFrame
+
+        # Save singlet statistics
+        singlet_df = pd.DataFrame(singlet_stats)
+        singlet_csv_path = os.path.join(
+            stats_dir, f"singlet_statistics_{os.path.basename(results_directory)}.csv"
+        )
+        singlet_df.to_csv(singlet_csv_path, index=False)
+        print(f"Saved singlet statistics to: {singlet_csv_path}")
+
+        # Process triplicate plots based on configuration
+        for config in plots_config.values():
+            plot_key = (
+                f"{config['type']}_{config['x_param']}_{config.get('y_param', '')}"
+            )
+            if "triplicate_plots" in config:
+                df_to_use = (
+                    scatter_dfs[plot_key]
+                    if config["type"] == "scatter"
+                    else histogram_dfs[plot_key]
+                )
+                for plot_spec in config["triplicate_plots"]:
+                    metric = plot_spec["metric"]
+                    title = plot_spec["title"]
+                    if metric in df_to_use.columns:
+                        triplicate_stats = calculate_triplicate_stats(df_to_use, metric)
+
+                        if not triplicate_stats.empty:
+                            # Save triplicate statistics
+                            triplicate_stats_filename = (
+                                f"{plot_key}_{metric}_triplicate_statistics.csv"
+                            )
+                            triplicate_stats_path = os.path.join(
+                                triplicate_stats_dir, triplicate_stats_filename
+                            )
+                            triplicate_stats.to_csv(triplicate_stats_path, index=False)
+                            print(
+                                f"Saved triplicate statistics for {metric} to: {triplicate_stats_path}"
+                            )
+
+                            # Plot triplicate statistics
+                            plot_triplicate_stats(
+                                triplicate_stats,
+                                metric,
+                                triplicate_plots_dir,
+                                title=f"{plot_key}_{title}",
+                            )
+                        else:
+                            print(
+                                f"No complete triplicates found for {metric} in {plot_key}. Skipping plot and statistics."
+                            )
+                    else:
+                        print(
+                            f"Metric {metric} not found in dataframe for {plot_key}. Skipping triplicate plot."
+                        )
+
+        # Save updated dataframes
+        for plot_key, df in scatter_dfs.items():
+            csv_filename = f"{plot_key}_statistics_with_triplicates.csv"
+            csv_path = os.path.join(stats_dir, csv_filename)
+            df.to_csv(csv_path, index=False)
+            print(f"Saved {plot_key} statistics with triplicates to: {csv_path}")
+
+        for plot_key, df in histogram_dfs.items():
+            csv_filename = f"{plot_key}_statistics_with_triplicates.csv"
+            csv_path = os.path.join(stats_dir, csv_filename)
+            df.to_csv(csv_path, index=False)
+            print(f"Saved {plot_key} statistics with triplicates to: {csv_path}")
+
+        # Save all main plots
+        for plot_key, fig in figs.items():
+            plot_filename = f"{plot_key}_plot_{os.path.basename(results_directory)}.png"
+            plot_path = os.path.join(plots_dir, plot_filename)
+            fig.savefig(plot_path, dpi=300, bbox_inches="tight")
+            plt.close(fig)
+            print(f"Saved {plot_key} plot: {plot_path}")
+
+        # Save singlet gate plot
+        singlet_plot_filename = (
+            f"singlet_gates_plot_{os.path.basename(results_directory)}.png"
+        )
+        singlet_plot_path = os.path.join(plots_dir, singlet_plot_filename)
+        fig_singlets.savefig(singlet_plot_path, dpi=300, bbox_inches="tight")
+        plt.close(fig_singlets)
+        print(f"Saved singlet gates plot: {singlet_plot_path}")
+
+        # Generate and save 96-well plots
+        for config in plots_config.values():
+            plot_key = (
+                f"{config['type']}_{config['x_param']}_{config.get('y_param', '')}"
+            )
+            if "96well_plots" in config:
+                df = (
+                    scatter_dfs[plot_key]
+                    if config["type"] == "scatter"
+                    else histogram_dfs[plot_key]
+                )
+                for plot_spec in config["96well_plots"]:
+                    metric = plot_spec["metric"]
+                    title = plot_spec["title"]
+                    if metric in df.columns:
+                        parameter_name = config["x_param"].split("-")[
+                            0
+                        ]  # Extract parameter name (e.g., 'BL1' from 'BL1-H')
+                        plot_96well_grid(
+                            df,
+                            metric,
+                            title,
+                            well_plots_dir,
+                            parameter_name=parameter_name,
+                        )
+                    else:
+                        print(
+                            f"Warning: Metric {metric} not found in data for {plot_key}. Skipping 96-well plot."
+                        )
+
+        return scatter_dfs, histogram_dfs, singlet_df, time.time() - start_time
