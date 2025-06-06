@@ -1250,3 +1250,202 @@ def process_fcs_files(directory, plots_config, results_directory):
                         )
 
         return scatter_dfs, histogram_dfs, singlet_df, time.time() - start_time
+
+
+def compile_summary_report(results_directory, plots_config):
+    pdf_path = os.path.join(results_directory, "summary_report.pdf")
+    plots_dir = os.path.join(results_directory, "plots")
+    well_plots_dir = os.path.join(results_directory, "96well_plots")
+    triplicate_plots_dir = os.path.join(results_directory, "triplicate_plots")
+
+    with PdfPages(pdf_path) as pdf:
+        # Add a title page
+        plt.figure(figsize=(11.69, 8.27))
+        directory_name = os.path.basename(results_directory)
+        current_datetime = datetime.now()
+        formatted_date = current_datetime.strftime("%d %B %Y")
+        formatted_time = current_datetime.strftime("%H:%M")
+
+        plt.text(
+            0.5,
+            0.7,
+            "Flow Cytometry Analysis Summary Report",
+            ha="center",
+            va="center",
+            fontsize=24,
+            fontweight="bold",
+        )
+        plt.text(
+            0.5,
+            0.6,
+            f"FLtower version: {__version__}",
+            ha="center",
+            va="center",
+            fontsize=18,
+        )
+        plt.text(
+            0.5,
+            0.5,
+            f"Directory: {directory_name}",
+            ha="center",
+            va="center",
+            fontsize=18,
+        )
+        plt.text(
+            0.5, 0.4, f"Date: {formatted_date}", ha="center", va="center", fontsize=18
+        )
+        plt.text(
+            0.5, 0.3, f"Time: {formatted_time}", ha="center", va="center", fontsize=18
+        )
+        plt.axis("off")
+        pdf.savefig()
+        plt.close()
+
+        # Compile main plots (histogram, scatter, singlets)
+        for config in plots_config.values():
+            plot_key = (
+                f"{config['type']}_{config['x_param']}_{config.get('y_param', '')}"
+            )
+            plot_filename = f"{plot_key}_plot_{os.path.basename(results_directory)}.png"
+            plot_path = os.path.join(plots_dir, plot_filename)
+            print(f"Searching for {plot_key} plot at: {plot_path}")
+
+            if os.path.exists(plot_path):
+                print(f"Found {plot_key} plot")
+                img = plt.imread(plot_path)
+                fig, ax = plt.subplots(figsize=(11.69, 8.27))
+                ax.imshow(img)
+                ax.axis("off")
+                plt.title(f"{plot_key.capitalize()} Plot", fontsize=16)
+                plt.tight_layout()
+                pdf.savefig(fig, orientation="landscape", dpi=300)
+                plt.close(fig)
+            else:
+                print(f"Warning: {plot_key} plot not found at {plot_path}")
+
+        # Add each 96-well plot to the PDF
+        for config in plots_config.values():
+            if "96well_plots" in config:
+                parameter_name = config["x_param"].split("-")[
+                    0
+                ]  # Extract parameter name
+                for plot_spec in config["96well_plots"]:
+                    metric = plot_spec["metric"]
+                    title = plot_spec["title"]
+                    plot_filename = f"{parameter_name}_{metric.replace(' ', '_').lower()}_96well_grid.png"
+                    plot_path = os.path.join(well_plots_dir, plot_filename)
+                    print(f"Searching for 96-well plot at: {plot_path}")
+
+                    if os.path.exists(plot_path):
+                        print(f"Adding 96-well plot for {metric} to PDF")
+                        img = plt.imread(plot_path)
+                        fig, ax = plt.subplots(figsize=(11.69, 8.27))
+                        ax.imshow(img)
+                        ax.axis("off")
+                        # plt.title(f"{title}\n({config['type']} plot)", fontsize=16)
+                        plt.tight_layout()
+                        pdf.savefig(fig, orientation="landscape")
+                        plt.close(fig)
+                    else:
+                        print(
+                            f"Warning: 96-well plot for {metric} not found at {plot_path}"
+                        )
+
+        # Add triplicate plots to the PDF
+        for config in plots_config.values():
+            if "triplicate_plots" in config:
+                plot_key = (
+                    f"{config['type']}_{config['x_param']}_{config.get('y_param', '')}"
+                )
+                for plot_spec in config["triplicate_plots"]:
+                    metric = plot_spec["metric"]
+                    title = plot_spec["title"]
+                    plot_filename = f"{plot_key}_{title.replace(' ', '_').lower()}_triplicate_stats.png"
+                    plot_path = os.path.join(triplicate_plots_dir, plot_filename)
+                    print(f"Searching for triplicate plot at: {plot_path}")
+
+                    if os.path.exists(plot_path):
+                        print(f"Adding triplicate plot for {metric} to PDF")
+                        img = plt.imread(plot_path)
+                        fig, ax = plt.subplots(figsize=(11.69, 8.27))
+                        ax.imshow(img)
+                        ax.axis("off")
+                        plt.title(f"{title}\n(Triplicate plot)", fontsize=16)
+                        plt.tight_layout()
+                        pdf.savefig(fig, orientation="landscape")
+                        plt.close(fig)
+                    else:
+                        print(
+                            f"Warning: Triplicate plot for {metric} not found at {plot_path}"
+                        )
+
+    print(f"Summary report saved to: {pdf_path}")
+
+
+def main(command_line_arguments=None):
+    """Main function of FLtower
+
+    Parameters
+    ----------
+    command_line_arguments : List[str], optional
+        Used to give inputs for the runtime when you call this function like a module.
+        For example, to test the FLtower run from tests folder.
+        By default None.
+    """
+    start_time = time.time()
+    print(f"FLtower version: {__version__}")
+    run_args = parse_run_args(command_line_arguments)
+
+    try:
+        input_folder = run_args.input
+        output_folder = run_args.output
+        plots_config = load_parameters(input_folder, run_args.parameters)
+
+        # Create results directory
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        results_directory = os.path.join(output_folder, f"results_{timestamp}")
+        os.makedirs(results_directory, exist_ok=True)
+        print(f"Created results directory: {results_directory}")
+        used_params = save_parameters(
+            plots_config, results_directory, "used_parameters.json"
+        )
+        print(f"Save used parameters: {used_params}")
+
+        scatter_dfs, histogram_dfs, singlet_df, runtime = process_fcs_files(
+            input_folder, plots_config, results_directory
+        )
+
+        print(f"All results saved in: {results_directory}")
+        print("\nScatter Plot Statistics:")
+        for plot_key, df in scatter_dfs.items():
+            print(f"\n{plot_key} Statistics:")
+            print(df)
+        print("\nHistogram Plot Statistics:")
+        for plot_key, df in histogram_dfs.items():
+            print(f"\n{plot_key} Statistics:")
+            print(df)
+        print("\nSinglet Statistics:")
+        print(singlet_df)
+
+        # Compile summary report
+        compile_summary_report(results_directory, plots_config)
+
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        print(
+            "Please check if the specified directory exists and you have the necessary permissions."
+        )
+    except ValueError as e:
+        print(f"Error: {e}")
+        print("Please ensure that the base directory contains valid FCS files.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {str(e)}")
+        traceback.print_exc()
+    finally:
+        end_time = time.time()
+        total_runtime = end_time - start_time
+        print(f"\nTotal script runtime: {total_runtime:.2f} seconds")
+
+
+if __name__ == "__main__":
+    main()
