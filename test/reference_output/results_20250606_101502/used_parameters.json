@@ -1,0 +1,122 @@
+{
+    "plots_config_1": {
+        "type": "scatter",
+        "x_param": "BL1-H",
+        "y_param": "YL2-H",
+        "x_scale": "log",
+        "y_scale": "log",
+        "xlim": [
+            1,
+            200000.0
+        ],
+        "ylim": [
+            1,
+            200000.0
+        ],
+        "cmap": "inferno",
+        "gridsize": 100,
+        "scatter_type": "density",
+        "quadrant_gates": {
+            "x": 2600,
+            "y": 2000
+        },
+        "96well_plots": [
+            {
+                "metric": "Q3_Percentage",
+                "title": "OFF cells Percentage"
+            },
+            {
+                "metric": "Q2_Percentage",
+                "title": "RFP cells Percentage"
+            },
+            {
+                "metric": "Q4_Percentage",
+                "title": "GFP cells Percentage"
+            },
+            {
+                "metric": "Global_BL1-H_Median",
+                "title": "Scatter Plot-GFP-RFP:GFP Median"
+            }
+        ],
+        "triplicate_plots": [
+            {
+                "metric": "Q3_Percentage",
+                "title": "OFF cells Percentage"
+            },
+            {
+                "metric": "Q2_Percentage",
+                "title": "RFP cells Percentage"
+            },
+            {
+                "metric": "Q4_Percentage",
+                "title": "GFP cells Percentage"
+            }
+        ]
+    },
+    "plots_config_2": {
+        "type": "histogram",
+        "x_param": "BL1-H",
+        "x_scale": "log",
+        "xlim": [
+            1,
+            200000.0
+        ],
+        "color": "seagreen",
+        "kde": true,
+        "gates": [
+            [
+                10,
+                800
+            ],
+            [
+                800,
+                100000.0
+            ]
+        ],
+        "96well_plots": [
+            {
+                "metric": "Global_Median",
+                "title": "GFP Histogram-Median"
+            }
+        ],
+        "triplicate_plots": [
+            {
+                "metric": "Global_Median",
+                "title": "GFP-Median"
+            }
+        ]
+    },
+    "plots_config_3": {
+        "type": "histogram",
+        "x_param": "YL2-H",
+        "x_scale": "log",
+        "xlim": [
+            1,
+            200000.0
+        ],
+        "color": "coral",
+        "kde": true,
+        "gates": [
+            [
+                10,
+                800
+            ],
+            [
+                800,
+                100000.0
+            ]
+        ],
+        "96well_plots": [
+            {
+                "metric": "Global_Median",
+                "title": "RFP Histogram-Median"
+            }
+        ],
+        "triplicate_plots": [
+            {
+                "metric": "Global_Median",
+                "title": "RFP-Median"
+            }
+        ]
+    }
+}
