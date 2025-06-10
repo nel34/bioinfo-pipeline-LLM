@@ -5,16 +5,17 @@ import json
 from datetime import datetime
 from fltower.main_fltower import process_fcs_files, compile_summary_report
 from fltower.data_manager import save_parameters
+import zipfile
 
 st.title("FLtower - Analyse de Cytométrie")
 
-# Upload FCS files
+# Upload fichier FCS
 st.header("1. Upload des fichiers .FCS")
 uploaded_files = st.file_uploader("Sélectionnez vos fichiers FCS", type="fcs", accept_multiple_files=True)
 
 # Paramètres dynamiques
 st.header("2. Configuration des graphiques")
-with open("parameters.json", "r") as f:
+with open("test/reference_input/parameters.json", "r") as f:
     default_parameters = json.load(f)
 
 selected_plots = st.multiselect(
@@ -28,8 +29,8 @@ custom_parameters = {}
 for key in selected_plots:
     st.subheader(f"Paramètres pour {key}")
     plot_config = default_parameters[key]
-    x_param = st.text_input(f"{key} - x_param", plot_config.get("x_param", ""), key + "_x")
-    y_param = st.text_input(f"{key} - y_param", plot_config.get("y_param", ""), key + "_y") if plot_config["type"] == "scatter" else None
+    x_param = st.text_input(f"{key} - x_param", value=plot_config.get("x_param", ""), key=key + "_x")
+    y_param = st.text_input(f"{key} - y_param", value=plot_config.get("y_param", ""), key=key + "_y") if plot_config["type"] == "scatter" else None
     plot_config["x_param"] = x_param
     if y_param:
         plot_config["y_param"] = y_param
@@ -62,7 +63,20 @@ if st.button("Analyser les données") and uploaded_files:
 
             st.success(f"Analyse terminée en {runtime:.1f} secondes")
 
-            # Télécharger le rapport
-            pdf_path = os.path.join(results_dir, "summary_report.pdf")
-            with open(pdf_path, "rb") as f:
-                st.download_button("Télécharger le rapport PDF", f, file_name="summary_report.pdf")
+            # Créer un ZIP contenant tous les résultats
+            zip_path = os.path.join(results_dir, "resultats_complets.zip")
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                for root, dirs, files in os.walk(results_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arcname = os.path.relpath(file_path, results_dir)
+                        zipf.write(file_path, arcname=arcname)
+
+            # Ajouter un bouton pour télécharger le ZIP
+            with open(zip_path, "rb") as f:
+                st.download_button(
+                    " Télécharger tous les résultats (.zip)",
+                    f,
+                    file_name="resultats_fltower.zip",
+                    mime="application/zip"
+                )
