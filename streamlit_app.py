@@ -32,13 +32,12 @@ for key in selected_plots:
 
         # Display main gates
         if plot_config["type"] == "scatter":
-            if "quadrant_gates" not in plot_config:
-                plot_config["quadrant_gates"] = {"x": 0, "y": 0}
-            st.markdown("**Quadrant Gates**")
-            qx = st.number_input(f"{key} - Quadrant X", value=plot_config["quadrant_gates"].get("x", 0), key=key + "_qx")
-            qy = st.number_input(f"{key} - Quadrant Y", value=plot_config["quadrant_gates"].get("y", 0), key=key + "_qy")
-            plot_config["quadrant_gates"]["x"] = qx
-            plot_config["quadrant_gates"]["y"] = qy
+            if "quadrant_gates" in plot_config:
+                st.markdown("**Quadrant Gates**")
+                qx = st.number_input(f"{key} - Quadrant X", value=plot_config["quadrant_gates"].get("x", 0), key=key + "_qx")
+                qy = st.number_input(f"{key} - Quadrant Y", value=plot_config["quadrant_gates"].get("y", 0), key=key + "_qy")
+                plot_config["quadrant_gates"]["x"] = qx
+                plot_config["quadrant_gates"]["y"] = qy
 
         elif plot_config["type"] == "histogram":
             st.markdown("**Histogram Gates**")
@@ -70,36 +69,43 @@ for key in selected_plots:
                     st.number_input(f"{key} - ylim min", value=plot_config.get("ylim", [0, 0])[0], key=key + "_ylim_min"),
                     st.number_input(f"{key} - ylim max", value=plot_config.get("ylim", [0, 0])[1], key=key + "_ylim_max")
                 ]
-                plot_config["cmap"] = st.text_input(f"{key} - Color map", value=plot_config.get("cmap", ""), key=key + "_cmap")
-                plot_config["gridsize"] = st.number_input(f"{key} - Grid size", value=plot_config.get("gridsize", 100), key=key + "_gridsize")
-                plot_config["scatter_type"] = st.text_input(f"{key} - Scatter type", value=plot_config.get("scatter_type", ""), key=key + "_scattertype")
+
+                if "cmap" in plot_config:
+                    plot_config["cmap"] = st.text_input(f"{key} - Color map", value=plot_config["cmap"], key=key + "_cmap")
+                if "gridsize" in plot_config:
+                    plot_config["gridsize"] = st.number_input(f"{key} - Grid size", value=plot_config["gridsize"], key=key + "_gridsize")
+                if "scatter_type" in plot_config:
+                    plot_config["scatter_type"] = st.text_input(f"{key} - Scatter type", value=plot_config["scatter_type"], key=key + "_scattertype")
 
             elif plot_config["type"] == "histogram":
                 plot_config["xlim"] = [
                     st.number_input(f"{key} - xlim min", value=plot_config.get("xlim", [0, 0])[0], key=key + "_xlim_min"),
                     st.number_input(f"{key} - xlim max", value=plot_config.get("xlim", [0, 0])[1], key=key + "_xlim_max")
                 ]
-                plot_config["color"] = st.text_input(f"{key} - Color", value=plot_config.get("color", ""), key=key + "_color")
-                plot_config["kde"] = st.checkbox(f"{key} - Show KDE", value=plot_config.get("kde", True), key=key + "_kde")
+                if "color" in plot_config:
+                    plot_config["color"] = st.text_input(f"{key} - Color", value=plot_config["color"], key=key + "_color")
+                if "kde" in plot_config:
+                    plot_config["kde"] = st.checkbox(f"{key} - Show KDE", value=plot_config["kde"], key=key + "_kde")
 
-            # Optional plots
-            st.markdown("#### 📈 96-Well Plots")
-            plot_config["96well_plots"] = plot_config.get("96well_plots", [])
-            new_96well = []
-            for i, p in enumerate(plot_config["96well_plots"]):
-                metric = st.text_input(f"{key} - 96well Plot {i+1} - Metric", value=p.get("metric", ""), key=f"{key}_96_{i}_metric")
-                title = st.text_input(f"{key} - 96well Plot {i+1} - Title", value=p.get("title", ""), key=f"{key}_96_{i}_title")
-                new_96well.append({"metric": metric, "title": title})
-            plot_config["96well_plots"] = new_96well
+            # Optional plots only if present
+            if "96well_plots" in plot_config:
+                st.markdown("#### 📈 96-Well Plots")
+                new_96well = []
+                for i, p in enumerate(plot_config["96well_plots"]):
+                    metric = st.text_input(f"{key} - 96well Plot {i+1} - Metric", value=p.get("metric", ""), key=f"{key}_96_{i}_metric")
+                    title = st.text_input(f"{key} - 96well Plot {i+1} - Title", value=p.get("title", ""), key=f"{key}_96_{i}_title")
+                    new_96well.append({"metric": metric, "title": title})
+                plot_config["96well_plots"] = new_96well
 
-            st.markdown("#### 📊 Triplicate Plots")
-            plot_config["triplicate_plots"] = plot_config.get("triplicate_plots", [])
-            new_trip = []
-            for i, p in enumerate(plot_config["triplicate_plots"]):
-                metric = st.text_input(f"{key} - Triplicate Plot {i+1} - Metric", value=p.get("metric", ""), key=f"{key}_trip_{i}_metric")
-                title = st.text_input(f"{key} - Triplicate Plot {i+1} - Title", value=p.get("title", ""), key=f"{key}_trip_{i}_title")
-                new_trip.append({"metric": metric, "title": title})
-            plot_config["triplicate_plots"] = new_trip
+            if "triplicate_plots" in plot_config:
+                st.markdown("#### 📊 Triplicate Plots")
+                new_trip = []
+                for i, p in enumerate(plot_config["triplicate_plots"]):
+                    metric = st.text_input(f"{key} - Triplicate Plot {i+1} - Metric", value=p.get("metric", ""), key=f"{key}_trip_{i}_metric")
+                    title = st.text_input(f"{key} - Triplicate Plot {i+1} - Title", value=p.get("title", ""), key=f"{key}_trip_{i}_title")
+                    new_trip.append({"metric": metric, "title": title})
+                plot_config["triplicate_plots"] = new_trip
+
 
         custom_parameters[key] = plot_config
 
