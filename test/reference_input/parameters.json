@@ -1,9 +1,9 @@
 
 {
-    "plots_config_1": {
+    "scatter_GFP_RFP": {
         "type": "scatter",
         "x_param": "BL1-H",
-        "y_param": "YL2-H",
+        "y_param": "YL1-H",
         "x_scale": "log",
         "y_scale": "log",
         "xlim": [1, 2e5],
@@ -30,7 +30,82 @@
             {"metric": "Q4_Percentage", "title": "GFP cells Percentage"}
         ]
     },
-    "plots_config_2": {
+
+    "scatter_GFP_BFP": {
+            "type": "scatter",
+            "x_param": "BL1-H",
+            "y_param": "YL1-H",
+            "x_scale": "log",
+            "y_scale": "log",
+            "xlim": [1, 2e5],
+            "ylim": [1, 2e5],
+            "cmap": "inferno",
+            "gridsize": 100,
+            "scatter_type": "density",
+            "quadrant_gates": {
+                "x": 2600,
+                "y": 2000
+            },
+            "96well_plots": [
+                {"metric": "Q3_Percentage", "title": "OFF cells Percentage"},
+                {"metric": "Q2_Percentage", "title": "BFP cells Percentage"},
+                {"metric": "Q4_Percentage", "title": "GFP cells Percentage"},
+                {
+                    "metric": "Global_BL1-H_Median",
+                    "title": "Scatter Plot-GFP-RFP:GFP Median"
+                }
+            ],
+            "triplicate_plots": [
+                {"metric": "Q3_Percentage", "title": "OFF cells Percentage"},
+                {"metric": "Q2_Percentage", "title": "BFP cells Percentage"},
+                {"metric": "Q4_Percentage", "title": "GFP cells Percentage"}
+            ]
+    },
+
+    "scatter_RFP_BFP": {
+            "type": "scatter",
+            "x_param": "YL2-H",
+            "y_param": "YL1-H",
+            "x_scale": "log",
+            "y_scale": "log",
+            "xlim": [1, 2e5],
+            "ylim": [1, 2e5],
+            "cmap": "inferno",
+            "gridsize": 100,
+            "scatter_type": "density",
+            "quadrant_gates": {
+                "x": 2600,
+                "y": 2000
+            },
+            "96well_plots": [
+                {"metric": "Q3_Percentage", "title": "OFF cells Percentage"},
+                {"metric": "Q2_Percentage", "title": "BFP cells Percentage"},
+                {"metric": "Q4_Percentage", "title": "RFP cells Percentage"},
+                {
+                    "metric": "Global_BL1-H_Median",
+                    "title": "Scatter Plot-GFP-RFP:GFP Median"
+                }
+            ],
+            "triplicate_plots": [
+                {"metric": "Q3_Percentage", "title": "OFF cells Percentage"},
+                {"metric": "Q2_Percentage", "title": "BFP cells Percentage"},
+                {"metric": "Q4_Percentage", "title": "RFP cells Percentage"}
+            ]
+    },
+
+    "scatter_SSC-H_FSC-H": {
+            "type": "scatter",
+            "x_param": "SSC-H",
+           "y_param": "FSC-H",
+            "x_scale": "log",
+            "y_scale": "log",
+            "xlim": [1, 2e5],
+            "ylim": [1, 2e5],
+            "gridsize": 100
+    },
+
+
+    "Histogram_GFP": {
         "type": "histogram",
         "x_param": "BL1-H",
         "x_scale": "log",
@@ -45,12 +120,28 @@
             {"metric": "Global_Median", "title": "GFP-Median"}
         ]
     },
-    "plots_config_3": {
+    "Histogram_RFP": {
         "type": "histogram",
         "x_param": "YL2-H",
         "x_scale": "log",
         "xlim": [1, 2e5],
         "color": "coral",
+        "kde": true,
+        "gates": [[10, 800], [800, 1e5]],
+        "96well_plots": [
+            {"metric": "Global_Median", "title": "RFP Histogram-Median"}
+        ],
+        "triplicate_plots": [
+            {"metric": "Global_Median", "title": "RFP-Median"}
+        ]
+    },
+
+    "Histogram_BFP": {
+        "type": "histogram",
+        "x_param": "YL1-H",
+        "x_scale": "log",
+        "xlim": [1, 2e5],
+        "color": "dodgerblue",
         "kde": true,
         "gates": [[10, 800], [800, 1e5]],
         "96well_plots": [
