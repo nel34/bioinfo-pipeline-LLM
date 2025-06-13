@@ -36,7 +36,7 @@ custom_parameters = {}
 with col2:
     for key in selected_plots:
         plot_config = default_parameters[key]
-        with st.expander(f"📊 {key}", expanded=False):
+        with st.expander(f"{key}", expanded=False):
             st.markdown(f"**Plot type: `{plot_config['type']}`**")
             if "x_param" in plot_config:
                 plot_config["x_param"] = st.text_input(f"{key} - x_param", value=plot_config["x_param"], key=f"{key}_xparam")
@@ -146,7 +146,7 @@ with col1:
 
                 with open(zip_path, "rb") as f:
                     st.download_button(
-                        "📦 Download all results (.zip)",
+                        "Download all results (.zip)",
                         f,
                         file_name="fltower_results.zip",
                         mime="application/zip"
